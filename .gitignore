@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.env
+
+# Project specific data
+milby_lore_db.json
+amber_map_index.json
+
+# Ignore all map files in the test directory, but keep the directory itself
+test-maps/*
+!test-maps/.gitkeep
