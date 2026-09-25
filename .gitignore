@@ -15,4 +15,5 @@ amber_map_index.json
 
 # Ignore all map files in the test directory, but keep the directory itself
 test-maps/*
+thumbnails/*
 !test-maps/.gitkeep
