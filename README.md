@@ -33,27 +33,22 @@ You will need a free Google Gemini API key. Set it in your local environment:
 export GEMINI_API_KEY="your-api-key"
 ```
 
-### 2. Populate the Test Folder
-Place a handful of map files (`.jpg`, `.png`, or `.webp`) into the `test-maps/` directory.
+### 2. Build the vault... in this example it writes to a specific foundryVTT location
+```bash
+python3 vault_builder.py /path/to/source1 /path/to/source2 ~/Library/Application\ Support/FoundryVTT/Data/modules/shadow-vault/images
+```
 
-### 3. Pre-Process the Images
+### 3. Generate the AI Metadata
+Run the vision model to analyze the maps and generate the `amber_map_index.json` database:
+
+```bash
+python3 tag_maps.py ~/Library/Application\ Support/FoundryVTT/Data/modules/shadow-vault/images
+```
+
+### 4. Pre-Process the Images
 Optimize the maps for a TV display before generating metadata:
 
 ```bash
 python3 rotate_landscape.py ./test-maps
 python3 preprocess_maps.py ./test-maps
-```
-
-### 4. Generate the AI Metadata
-Run the vision model to analyze the maps and generate the `amber_map_index.json` database:
-
-```bash
-python3 tag_maps.py ./test-maps
-```
-
-### 5. Build the Foundry Vault
-Run the vault builder to package the maps for your VTT environment:
-
-```bash
-python3 vault_builder.py
 ```
