@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shadow Walk Vault</title>
+    <style>
+        :root {
+            --bg-color: #121214;
+            --card-bg: #1e1e24;
+            --text-main: #e0e0e0;
+            --text-muted: #9aa0a6;
+            --amber-color: #ffbf00;
+            --border-color: #333;
+        }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 2rem;
+        }
+        header {
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+        }
+        h1 { margin: 0 0 1rem 0; color: var(--amber-color); }
+        
+        .controls {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        input[type="text"], select {
+            padding: 0.75rem;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            background-color: var(--card-bg);
+            color: var(--text-main);
+            font-size: 1rem;
+            min-width: 200px;
+            flex-grow: 1;
+        }
+        input[type="text"]:focus, select:focus {
+            outline: 1px solid var(--amber-color);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+        .card-img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .card-content {
+            padding: 1.25rem;
+            flex-grow: 1;
+        }
+        .card-title {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.25rem;
+        }
+        .meta-text {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+        .summary {
+            font-size: 0.95rem;
+            line-height: 1.4;
+            margin-bottom: 1rem;
+        }
+        .cues {
+            background: #151518;
+            padding: 0.75rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            border-left: 3px solid var(--amber-color);
+        }
+        .cues ul { margin: 0; padding-left: 1.2rem; }
+        .cues li { margin-bottom: 0.25rem; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Shadow Walk Vault</h1>
+        <div class="controls">
+            <input type="text" id="searchInput" placeholder="Search tags, features, or cues...">
+            <select id="eraFilter">
+                <option value="all">All Eras</option>
+            </select>
+            <select id="environmentFilter">
+                <option value="all">All Environments</option>
+            </select>
+        </div>
+    </header>
+
+    <div class="grid" id="mapGrid">
+        <!-- Cards injected via JS -->
+    </div>
+
+    <script>
+        let vaultData = [];
+
+        async function loadVault() {
+            try {
+                const response = await fetch('amber_map_index.json');
+                vaultData = await response.json();
+                populateDropdowns();
+                renderGrid(vaultData);
+            } catch (error) {
+                document.getElementById('mapGrid').innerHTML = `<p style="color:red;">Error loading amber_map_index.json. Ensure you are running a local web server.</p>`;
+            }
+        }
+
+        function populateDropdowns() {
+            // Extract unique eras and environments, filter out blanks, and sort alphabetically
+            const eras = [...new Set(vaultData.map(m => m.era))].filter(Boolean).sort();
+            const envs = [...new Set(vaultData.map(m => m.environment))].filter(Boolean).sort();
+
+            const eraSelect = document.getElementById('eraFilter');
+            eras.forEach(era => eraSelect.add(new Option(era, era)));
+
+            const envSelect = document.getElementById('environmentFilter');
+            envs.forEach(env => envSelect.add(new Option(env, env)));
+        }
+
+        function renderGrid(maps) {
+            const grid = document.getElementById('mapGrid');
+            grid.innerHTML = '';
+
+            maps.forEach(map => {
+                const cuesList = map.shadow_shift_cues 
+                    ? map.shadow_shift_cues.map(cue => `<li>${cue}</li>`).join('') 
+                    : '<li>No cues provided</li>';
+
+                const html = `
+                    <div class="card">
+                        <img src="images/${map.filename}" alt="${map.title}" class="card-img" loading="lazy">
+                        <div class="card-content">
+                            <h2 class="card-title">${map.title || map.filename}</h2>
+                            <div class="meta-text"><strong>Era:</strong> ${map.era || 'Unknown'}</div>
+                            <div class="meta-text"><strong>Env:</strong> ${map.environment || 'Unknown'}</div>
+                            <div class="meta-text"><strong>Chaos Scale:</strong> ${map.order_chaos_scale || 'N/A'}</div>
+                            <p class="summary">${map.summary || 'No summary available.'}</p>
+                            
+                            <div class="cues">
+                                <strong>Shadow Shift Cues:</strong>
+                                <ul>${cuesList}</ul>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                grid.insertAdjacentHTML('beforeend', html);
+            });
+            
+            if (maps.length === 0) {
+                grid.innerHTML = '<p>No maps found matching your criteria.</p>';
+            }
+        }
+
+        function filterMaps() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const era = document.getElementById('eraFilter').value;
+            const env = document.getElementById('environmentFilter').value;
+
+            const filtered = vaultData.filter(map => {
+                // Check Dropdowns
+                if (era !== 'all' && map.era !== era) return false;
+                if (env !== 'all' && map.environment !== env) return false;
+                
+                // Check Text Search (searches title, features, tags, and cues)
+                if (query) {
+                    const searchableText = [
+                        map.title,
+                        map.environment,
+                        map.atmosphere,
+                        map.summary,
+                        ...(map.features || []),
+                        ...(map.shadow_shift_cues || [])
+                    ].join(' ').toLowerCase();
+                    
+                    if (!searchableText.includes(query)) return false;
+                }
+                
+                return true;
+            });
+
+            renderGrid(filtered);
+        }
+
+        document.getElementById('searchInput').addEventListener('input', filterMaps);
+        document.getElementById('eraFilter').addEventListener('change', filterMaps);
+        document.getElementById('environmentFilter').addEventListener('change', filterMaps);
+
+        // Initialize
+        loadVault();
+    </script>
+</body>
+</html>
