@@ -10,6 +10,10 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 from google import genai
 from google.genai import types
+from PIL import Image
+
+# Disable the Decompression Bomb warning for giant maps
+Image.MAX_IMAGE_PIXELS = None
 
 # 1. Expanded Metadata Schema
 class MapMetadata(BaseModel):
@@ -121,6 +125,16 @@ def analyze_map(client: genai.Client, image_path: Path, matched_lore: dict) -> d
             else:
                 raise e
 
+def get_foundry_relative_path(file_path: Path) -> str:
+    """Extracts the Foundry-friendly relative path starting from 'modules'."""
+    try:
+        parts = file_path.parts
+        modules_index = parts.index('modules')
+        return str(Path(*parts[modules_index:]))
+    except ValueError:
+        # Fallback if the script is run in a folder not containing 'modules'
+        return file_path.name
+
 def slugify_filename(title: str, original_path: Path) -> Path:
     """Converts a title like 'Stygian City - Abyss' into 'stygian_city_abyss.jpg'"""
     clean_name = re.sub(r'[^a-z0-9\s-]', '', title.lower())
@@ -138,6 +152,15 @@ def slugify_filename(title: str, original_path: Path) -> Path:
         counter += 1
         
     return new_path
+
+def get_foundry_relative_path(file_path: Path) -> str:
+    """Extracts the Foundry-friendly relative path starting from 'modules'."""
+    try:
+        parts = file_path.parts
+        modules_index = parts.index('modules')
+        return str(Path(*parts[modules_index:]))
+    except ValueError:
+        return file_path.name
 
 def main():
     if len(sys.argv) < 2:
@@ -173,9 +196,11 @@ def main():
         image_files = [target_path]
     else:
         valid_exts = {".webp", ".jpg", ".jpeg", ".png"}
+        # Build the list, then slice the first 5 items
+        # image_files = [p for p in target_path.iterdir() if p.suffix.lower() in valid_exts][:5]
         image_files = [p for p in target_path.iterdir() if p.suffix.lower() in valid_exts]
 
-    print(f"Found {len(image_files)} map(s) to process.")
+    print(f"Found {len(image_files)} map(s) to process in this test batch.")
 
     output_file = Path("amber_map_index.json")
     if output_file.exists():
@@ -194,18 +219,36 @@ def main():
 
         try:
             matched_lore = find_lore_match(img_path.name, lore_db)
+            
+            # 1. AI Analyzes the original, un-rotated image
             metadata = analyze_map(client, img_path, matched_lore)
             
-            # --- AUTO-RENAME LOGIC ADDED HERE ---
+            # 2. Rename the file based on AI metadata
             new_file_path = slugify_filename(metadata['title'], img_path)
             if new_file_path != img_path:
                 img_path.rename(new_file_path)
                 print(f"    [~] Renamed file to: {new_file_path.name}")
             
-            # Update the JSON to point to the new clean filename
+            # 3. Update paths in metadata
             metadata['filename'] = new_file_path.name
-            metadata['relative_path'] = str(new_file_path)
-            # ------------------------------------
+            metadata['relative_path'] = get_foundry_relative_path(new_file_path)
+            
+            # 4. Extract Dimensions & Rotate if Portrait
+            try:
+                with Image.open(new_file_path) as img:
+                    width, height = img.size
+                    
+                    # If it's a portrait map, rotate it for VTT use
+                    if height > width:
+                        print(f"    [*] Rotating {new_file_path.name} to landscape (Was: {width}x{height})")
+                        img = img.transpose(Image.Transpose.ROTATE_90)
+                        img.save(new_file_path) # Overwrite the file with the rotated version
+                        width, height = img.size # Update to the new dimensions
+                        
+                    metadata["width"], metadata["height"] = width, height
+            except Exception as e:
+                print(f"    [!] Could not read/rotate {new_file_path.name}: {e}")
+                metadata["width"], metadata["height"] = 4000, 3000
 
             results.append(metadata)
             
@@ -213,7 +256,7 @@ def main():
                 json.dump(results, f, indent=2)
 
             print(f"[+] Successfully indexed: {metadata['title']}")
-            time.sleep(0.5) # Using 0.5 since you are on the pay-as-you-go fast lane!
+            time.sleep(0.5) 
 
         except Exception as e:
             print(f"[!] Error analyzing {img_path.name}: {e}")

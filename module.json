@@ -1,0 +1,38 @@
+{
+  "id": "shadow-vault",
+  "title": "The Shadow Vault",
+  "version": "1.0.0",
+  "description": "An automated compendium of Shadow-shifting battlemaps.",
+  "compatibility": {
+    "minimum": "13",
+    "verified": "14"
+  },
+  "authors": [
+    {
+      "name": "Jay Farschman"
+    }
+  ],
+  "relationships": {
+    "systems": [
+      {
+        "id": "daggerheart",
+        "type": "system"
+      }
+    ]
+  },
+  "packs": [
+    {
+      "label": "Shadow Maps",
+      "type": "Scene",
+      "name": "maps",
+      "path": "packs/maps",
+      "system": "daggerheart",
+      "ownership": {
+        "PLAYER": "NONE",
+        "ASSISTANT": "OWNER"
+      },
+      "flags": {}
+    }
+  ],
+  "flags": {}
+}
