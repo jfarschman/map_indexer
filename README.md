@@ -68,3 +68,6 @@ python3 tag_maps.py ~/Library/Application\ Support/FoundryVTT/Data/modules/shado
 
 ### 6. Test it.
 You should expect to see thumbnails and be able to import maps into your world. These may not be scaled properly, but heck. jump into the "grid" tab and alter the size... I believe valid entries are between 20 and 200 and it starts at 100.
+
+### 7. HTML Searches
+I created an index.html and populated it with the contents of shadow_search.html. This will read the .json file and make it searchable.  If you want images, then run build_thumbnails.py and place the thumbnails directory with the index.html.
