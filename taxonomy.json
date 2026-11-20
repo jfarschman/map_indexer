@@ -1,0 +1,35 @@
+{
+  "eras": [
+    "Prehistoric / Tribal",
+    "Ancient / Classical",
+    "Medieval",
+    "Renaissance / Age of Sail",
+    "Victorian / Industrial",
+    "Modern",
+    "Sci-Fi / Future",
+    "Timeless / Natural",
+    "Otherworldly / Planar"
+  ],
+  "environments": [
+    "Forest / Jungle",
+    "Plains / Rural",
+    "Mountain / Canyon",
+    "Desert / Wasteland",
+    "Swamp / Wetland",
+    "Tundra / Arctic",
+    "Coastal / Aquatic",
+    "Subterranean",
+    "Sky / Aerial",
+    "Astral / Void",
+    "Urban"
+  ],
+  "structures": [
+    "Interior",
+    "Dungeon / Crypt",
+    "Fortress / Castle",
+    "Ruins",
+    "Settlement / Estate",
+    "Vessel / Vehicle",
+    "Overworld / Regional"
+  ]
+}
