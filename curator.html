@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shadow Vault Curator</title>
+  <style>
+    :root {
+      --bg: #121418;
+      --panel: #1b1f26;
+      --border: #2e3440;
+      --text: #e5e9f0;
+      --muted: #8892a0;
+      --accent: #5e81ac;
+      --accent-active: #88c0d0;
+      --success: #a3be8c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .controls { display: flex; align-items: center; gap: 12px; }
+    select, input[type="text"], input[type="number"], textarea {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 14px;
+    }
+    input[type="text"], textarea { width: 100%; }
+    textarea { resize: vertical; min-height: 70px; font-family: inherit; }
+    main {
+      display: grid;
+      grid-template-columns: 1fr 1.1fr;
+      gap: 20px;
+      padding: 20px;
+      flex: 1;
+      overflow: hidden;
+    }
+    .preview-pane {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .preview-pane img {
+      max-width: 100%;
+      max-height: 72vh;
+      object-fit: contain;
+      border-radius: 4px;
+      background: #000;
+    }
+    .meta-strip {
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--muted);
+      text-align: center;
+      word-break: break-all;
+    }
+    .form-pane {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .field-row { display: flex; gap: 12px; }
+    .field-group { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+    label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+    .pill-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .pill {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 11px;
+      border-radius: 999px;
+      font-size: 13px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.12s ease;
+    }
+    .pill:hover { border-color: var(--accent-active); }
+    .pill.active {
+      background: var(--accent);
+      border-color: var(--accent-active);
+      color: #fff;
+      font-weight: 600;
+    }
+    .actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      margin-top: auto;
+    }
+    button {
+      background: var(--border);
+      color: var(--text);
+      border: none;
+      border-radius: 6px;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { filter: brightness(1.15); }
+    button.primary { background: var(--success); color: #121418; }
+    .status { font-size: 13px; color: var(--success); min-height: 18px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="controls">
+      <strong>Shadow Vault Curator</strong>
+      <span id="progress" style="color: var(--muted); font-size: 14px;">Loading...</span>
+    </div>
+    <div class="controls">
+      <select id="filterMode">
+        <option value="uncurated">Uncurated Only</option>
+        <option value="all">All Maps</option>
+        <option value="curated">Curated Only</option>
+      </select>
+      <input type="text" id="quickSearch" placeholder="Filter filename/title..." style="width: 220px;">
+    </div>
+  </header>
+
+  <main>
+    <section class="preview-pane">
+      <img id="mapImg" src="" alt="Map thumbnail">
+      <div class="meta-strip" id="metaStrip"></div>
+    </section>
+
+    <section class="form-pane">
+      <div class="field-row">
+        <div class="field-group" style="flex: 3;">
+          <label for="titleInput">Title</label>
+          <input type="text" id="titleInput">
+        </div>
+        <div class="field-group" style="flex: 1;">
+          <label for="gridInput">Grid (px)</label>
+          <input type="number" id="gridInput">
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label>Era (Authority Controlled)</label>
+        <div class="pill-grid" id="eraPills"></div>
+      </div>
+
+      <div class="field-group">
+        <label>Environment (Authority Controlled)</label>
+        <div class="pill-grid" id="envPills"></div>
+      </div>
+
+      <div class="field-group">
+        <label>Structure / Type (Authority Controlled)</label>
+        <div class="pill-grid" id="structPills"></div>
+      </div>
+
+      <div class="field-group">
+        <label for="summaryInput">Summary</label>
+        <textarea id="summaryInput" placeholder="Brief GM description of the scene..."></textarea>
+      </div>
+
+      <div class="field-group">
+        <label for="featuresInput">Features (comma-separated)</label>
+        <input type="text" id="featuresInput" placeholder="e.g. rope bridge, waterfall, campfire, ruined arch">
+      </div>
+
+      <div class="actions">
+        <div style="display: flex; gap: 8px;">
+          <button id="prevBtn" type="button">← Prev</button>
+          <button id="nextBtn" type="button">Skip →</button>
+        </div>
+        <span class="status" id="statusMsg"></span>
+        <button id="saveBtn" class="primary" type="button">Save & Next (⌘+Enter)</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let taxonomy = { eras: [], environments: [], structures: [] };
+    let allMaps = [];
+    let filteredMaps = [];
+    let currentIndex = 0;
+
+    async function init() {
+      const [taxRes, mapRes] = await Promise.all([
+        fetch("taxonomy.json"),
+        fetch("amber_map_index.json")
+      ]);
+      taxonomy = await taxRes.json();
+      allMaps = await mapRes.json();
+
+      buildPills("eraPills", taxonomy.eras);
+      buildPills("envPills", taxonomy.environments);
+      buildPills("structPills", taxonomy.structures);
+
+      applyFilter();
+    }
+
+    function buildPills(containerId, items) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = "";
+      items.forEach(term => {
+        const el = document.createElement("div");
+        el.className = "pill";
+        el.textContent = term;
+        el.dataset.value = term;
+        el.addEventListener("click", () => el.classList.toggle("active"));
+        container.appendChild(el);
+      });
+    }
+
+    function setPills(containerId, selectedValues) {
+      const set = new Set(selectedValues || []);
+      document.querySelectorAll(`#${containerId} .pill`).forEach(el => {
+        el.classList.toggle("active", set.has(el.dataset.value));
+      });
+    }
+
+    function getPills(containerId) {
+      return Array.from(document.querySelectorAll(`#${containerId} .pill.active`))
+        .map(el => el.dataset.value);
+    }
+
+    function updateProgress() {
+      const curatedCount = allMaps.filter(m => m.curated).length;
+      document.getElementById("progress").textContent =
+        `${curatedCount} / ${allMaps.length} curated  |  Queue: ${filteredMaps.length}`;
+    }
+
+    function applyFilter() {
+      const mode = document.getElementById("filterMode").value;
+      const q = document.getElementById("quickSearch").value.trim().toLowerCase();
+
+      filteredMaps = allMaps.filter(m => {
+        if (mode === "uncurated" && m.curated) return false;
+        if (mode === "curated" && !m.curated) return false;
+        if (q) {
+          const hay = `${m.filename} ${m.title || ""}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+
+      currentIndex = 0;
+      updateProgress();
+      renderCurrent();
+    }
+
+    function renderCurrent() {
+      const img = document.getElementById("mapImg");
+      const meta = document.getElementById("metaStrip");
+
+      if (filteredMaps.length === 0) {
+        img.src = "";
+        meta.textContent = "No maps match the current filter.";
+        return;
+      }
+
+      if (currentIndex >= filteredMaps.length) currentIndex = filteredMaps.length - 1;
+      if (currentIndex < 0) currentIndex = 0;
+
+      const m = filteredMaps[currentIndex];
+      img.src = `thumbnails/${encodeURIComponent(m.thumb_filename)}`;
+      meta.textContent = `[${currentIndex + 1} / ${filteredMaps.length}]  ${m.filename}  (${m.width}x${m.height})  ${m.curated ? "✓ Curated" : "• Uncurated"}`;
+
+      document.getElementById("titleInput").value = m.title || "";
+      document.getElementById("gridInput").value = m.grid_size || 100;
+      document.getElementById("summaryInput").value = m.summary || "";
+      document.getElementById("featuresInput").value = (m.features || []).join(", ");
+
+      setPills("eraPills", m.eras);
+      setPills("envPills", m.environments);
+      setPills("structPills", m.structures);
+    }
+
+    async function saveCurrent() {
+      if (filteredMaps.length === 0) return;
+      const m = filteredMaps[currentIndex];
+
+      m.title = document.getElementById("titleInput").value.trim();
+      m.grid_size = parseInt(document.getElementById("gridInput").value, 10) || 100;
+      m.eras = getPills("eraPills");
+      m.environments = getPills("envPills");
+      m.structures = getPills("structPills");
+      m.summary = document.getElementById("summaryInput").value.trim();
+      m.features = document.getElementById("featuresInput").value
+        .split(",")
+        .map(s => s.trim())
+        .filter(Boolean);
+      m.curated = true;
+
+      const status = document.getElementById("statusMsg");
+      status.textContent = "Saving...";
+
+      const res = await fetch("/api/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(m)
+      });
+
+      if (res.ok) {
+        status.textContent = "Saved!";
+        setTimeout(() => { if (status.textContent === "Saved!") status.textContent = ""; }, 1200);
+
+        const mode = document.getElementById("filterMode").value;
+        if (mode === "uncurated") {
+          filteredMaps.splice(currentIndex, 1);
+        } else {
+          currentIndex = Math.min(currentIndex + 1, filteredMaps.length - 1);
+        }
+        updateProgress();
+        renderCurrent();
+      } else {
+        status.textContent = "Save failed!";
+      }
+    }
+
+    document.getElementById("filterMode").addEventListener("change", applyFilter);
+    document.getElementById("quickSearch").addEventListener("input", applyFilter);
+    document.getElementById("prevBtn").addEventListener("click", () => { currentIndex--; renderCurrent(); });
+    document.getElementById("nextBtn").addEventListener("click", () => { currentIndex++; renderCurrent(); });
+    document.getElementById("saveBtn").addEventListener("click", saveCurrent);
+
+    document.addEventListener("keydown", e => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        saveCurrent();
+      }
+    });
+
+    init();
+  </script>
+</body>
+</html>
