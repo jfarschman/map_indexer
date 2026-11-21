@@ -13,8 +13,10 @@ This toolkit eliminates the cognitive load of manual map sorting. It uses the Ge
 These scripts are designed to be run locally on macOS against a folder of raw image files.
 
 * **`import-shadow-compendium.js`**: The macro that grabs the files from the shadow-vault/images and creates the compendium.
+* **`find_dupes.py`**: runs on the shadow-vault/images to locate dupes.
 * **`rotate_landscape.py`**: Detects portrait-oriented maps and mathematically rotates them 90 degrees to perfectly fit a landscape TV screen.
 * **`preprocess_maps.py`**: Uses Pillow (`ImageEnhance`) to apply a subtle 15% bump to brightness and contrast, correcting dark maps without blowing out the midtones. I really don't like dark maps, but you can skip this if you want.
+* **`scan_vault.py`**: runs a count on shadow-vault/images to show what's completed or not.
 * **`tag_maps.py`**: The core AI engine. Analyzes the visual content of the maps via the `gemini-3.8-flash` vision model and outputs structured, queryable JSON metadata.
 * **`vault_builder.py`**: Translates the indexed metadata into a format ingestible by Foundry VTT as a Scene Compendium.
 * **`milby_lore_db.json` (Stub)**: A local metadata file containing author-specific lore/text. *Note: For copyright reasons, artist-provided text is not tracked in this repository. Users should generate their own lore JSON locally.*
