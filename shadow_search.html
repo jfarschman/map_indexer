@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noarchive">
     <title>Shadow Walk Vault</title>
     <style>
         :root {
@@ -12,7 +13,11 @@
             --text-muted: #9aa0a6;
             --amber-color: #ffbf00;
             --border-color: #333;
+            --badge-era: #2c3e50;
+            --badge-env: #1e4620;
+            --badge-struct: #4a2c40;
         }
+        * { box-sizing: border-box; }
         body {
             font-family: system-ui, -apple-system, sans-serif;
             background-color: var(--bg-color);
@@ -23,32 +28,64 @@
         header {
             margin-bottom: 2rem;
             border-bottom: 1px solid var(--border-color);
-            padding-bottom: 1rem;
+            padding-bottom: 1.25rem;
         }
-        h1 { margin: 0 0 1rem 0; color: var(--amber-color); }
-        
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        h1 { margin: 0; color: var(--amber-color); }
+        .result-count {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
         .controls {
             display: flex;
-            gap: 1rem;
+            gap: 0.75rem;
             flex-wrap: wrap;
+            align-items: center;
         }
         input[type="text"], select {
-            padding: 0.75rem;
+            padding: 0.65rem 0.75rem;
             border-radius: 4px;
             border: 1px solid var(--border-color);
             background-color: var(--card-bg);
             color: var(--text-main);
-            font-size: 1rem;
-            min-width: 200px;
+            font-size: 0.95rem;
+            min-width: 180px;
             flex-grow: 1;
         }
         input[type="text"]:focus, select:focus {
             outline: 1px solid var(--amber-color);
         }
+        .toggle-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.65rem 0.85rem;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+        .toggle-label input {
+            accent-color: var(--amber-color);
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
 
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
             gap: 1.5rem;
         }
 
@@ -62,142 +99,189 @@
         }
         .card-img {
             width: 100%;
-            height: 200px;
+            height: 210px;
             object-fit: cover;
             border-bottom: 1px solid var(--border-color);
+            background-color: #0b0b0d;
         }
         .card-content {
-            padding: 1.25rem;
+            padding: 1.15rem;
             flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
         }
         .card-title {
-            margin: 0 0 0.5rem 0;
-            font-size: 1.25rem;
+            margin: 0;
+            font-size: 1.15rem;
+            color: var(--text-main);
         }
-        .meta-text {
-            font-size: 0.9rem;
+        .meta-dims {
+            font-size: 0.8rem;
             color: var(--text-muted);
-            margin-bottom: 0.5rem;
         }
+        .badge-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+        }
+        .badge {
+            font-size: 0.75rem;
+            padding: 0.2rem 0.55rem;
+            border-radius: 999px;
+            color: #f0f0f0;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .badge.era { background-color: var(--badge-era); }
+        .badge.env { background-color: var(--badge-env); }
+        .badge.struct { background-color: var(--badge-struct); }
+
         .summary {
-            font-size: 0.95rem;
-            line-height: 1.4;
-            margin-bottom: 1rem;
+            font-size: 0.92rem;
+            line-height: 1.45;
+            margin: 0;
+            color: #d0d4da;
         }
-        .cues {
+        .features-box {
+            margin-top: auto;
             background: #151518;
-            padding: 0.75rem;
+            padding: 0.65rem 0.75rem;
             border-radius: 4px;
-            font-size: 0.85rem;
+            font-size: 0.82rem;
+            color: var(--text-muted);
             border-left: 3px solid var(--amber-color);
         }
-        .cues ul { margin: 0; padding-left: 1.2rem; }
-        .cues li { margin-bottom: 0.25rem; }
+        .features-box strong {
+            color: var(--text-main);
+        }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>Shadow Walk Vault</h1>
+        <div class="header-top">
+            <h1>Shadow Walk Vault</h1>
+            <div class="result-count" id="resultCount">Loading vault...</div>
+        </div>
         <div class="controls">
-            <input type="text" id="searchInput" placeholder="Search tags, features, or cues...">
+            <input type="text" id="searchInput" placeholder="Search title, summary, or features...">
             <select id="eraFilter">
                 <option value="all">All Eras</option>
             </select>
             <select id="environmentFilter">
                 <option value="all">All Environments</option>
             </select>
+            <select id="structureFilter">
+                <option value="all">All Structures</option>
+            </select>
+            <label class="toggle-label">
+                <input type="checkbox" id="curatedOnly" checked>
+                Curated Only
+            </label>
         </div>
     </header>
 
-    <div class="grid" id="mapGrid">
-        <!-- Cards injected via JS -->
-    </div>
+    <div class="grid" id="mapGrid"></div>
 
     <script>
         let vaultData = [];
+        let taxonomy = { eras: [], environments: [], structures: [] };
 
         async function loadVault() {
             try {
-                const response = await fetch('amber_map_index.json');
-                vaultData = await response.json();
+                const [taxRes, mapRes] = await Promise.all([
+                    fetch('taxonomy.json'),
+                    fetch('amber_map_index.json')
+                ]);
+                taxonomy = await taxRes.json();
+                vaultData = await mapRes.json();
+
                 populateDropdowns();
-                renderGrid(vaultData);
+                filterMaps();
             } catch (error) {
-                document.getElementById('mapGrid').innerHTML = `<p style="color:red;">Error loading amber_map_index.json. Ensure you are running a local web server.</p>`;
+                document.getElementById('mapGrid').innerHTML =
+                    `<p style="color:#ff6b6b;">Error loading taxonomy.json or amber_map_index.json. Make sure both files are in the same folder.</p>`;
             }
         }
 
         function populateDropdowns() {
-            // Extract unique eras and environments, filter out blanks, and sort alphabetically
-            const eras = [...new Set(vaultData.map(m => m.era))].filter(Boolean).sort();
-            const envs = [...new Set(vaultData.map(m => m.environment))].filter(Boolean).sort();
-
             const eraSelect = document.getElementById('eraFilter');
-            eras.forEach(era => eraSelect.add(new Option(era, era)));
+            (taxonomy.eras || []).forEach(era => eraSelect.add(new Option(era, era)));
 
             const envSelect = document.getElementById('environmentFilter');
-            envs.forEach(env => envSelect.add(new Option(env, env)));
+            (taxonomy.environments || []).forEach(env => envSelect.add(new Option(env, env)));
+
+            const structSelect = document.getElementById('structureFilter');
+            (taxonomy.structures || []).forEach(struct => structSelect.add(new Option(struct, struct)));
         }
 
         function renderGrid(maps) {
             const grid = document.getElementById('mapGrid');
-            grid.innerHTML = '';
+            const curatedTotal = vaultData.filter(m => m.curated).length;
+            document.getElementById('resultCount').textContent =
+                `Showing ${maps.length} maps (${curatedTotal} / ${vaultData.length} curated)`;
 
-            maps.forEach(map => {
-                const cuesList = map.shadow_shift_cues 
-                    ? map.shadow_shift_cues.map(cue => `<li>${cue}</li>`).join('') 
-                    : '<li>No cues provided</li>';
+            if (maps.length === 0) {
+                grid.innerHTML = '<p style="color: var(--text-muted);">No maps found matching your criteria.</p>';
+                return;
+            }
 
-                const html = `
+            const html = maps.map(map => {
+                const imgFile = map.thumb_filename || map.filename;
+                const eraBadges = (map.eras || []).map(t => `<span class="badge era">${t}</span>`).join('');
+                const envBadges = (map.environments || []).map(t => `<span class="badge env">${t}</span>`).join('');
+                const structBadges = (map.structures || []).map(t => `<span class="badge struct">${t}</span>`).join('');
+                const allBadges = eraBadges + envBadges + structBadges;
+
+                const featuresHtml = (map.features && map.features.length > 0)
+                    ? `<div class="features-box"><strong>Features:</strong> ${map.features.join(', ')}</div>`
+                    : '';
+
+                return `
                     <div class="card">
-                        <img src="images/${map.filename}" alt="${map.title}" class="card-img" loading="lazy">
+                        <img src="thumbnails/${encodeURIComponent(imgFile)}" alt="${map.title || map.filename}" class="card-img" loading="lazy">
                         <div class="card-content">
                             <h2 class="card-title">${map.title || map.filename}</h2>
-                            <div class="meta-text"><strong>Era:</strong> ${map.era || 'Unknown'}</div>
-                            <div class="meta-text"><strong>Env:</strong> ${map.environment || 'Unknown'}</div>
-                            <div class="meta-text"><strong>Chaos Scale:</strong> ${map.order_chaos_scale || 'N/A'}</div>
-                            <p class="summary">${map.summary || 'No summary available.'}</p>
-                            
-                            <div class="cues">
-                                <strong>Shadow Shift Cues:</strong>
-                                <ul>${cuesList}</ul>
-                            </div>
+                            <div class="meta-dims">${map.width || '?'}x${map.height || '?'} px &middot; Grid: ${map.grid_size || 100}px</div>
+                            ${allBadges ? `<div class="badge-group">${allBadges}</div>` : ''}
+                            <p class="summary">${map.summary || 'No summary yet.'}</p>
+                            ${featuresHtml}
                         </div>
                     </div>
                 `;
-                grid.insertAdjacentHTML('beforeend', html);
-            });
-            
-            if (maps.length === 0) {
-                grid.innerHTML = '<p>No maps found matching your criteria.</p>';
-            }
+            }).join('');
+
+            grid.innerHTML = html;
         }
 
         function filterMaps() {
-            const query = document.getElementById('searchInput').value.toLowerCase();
+            const query = document.getElementById('searchInput').value.trim().toLowerCase();
             const era = document.getElementById('eraFilter').value;
             const env = document.getElementById('environmentFilter').value;
+            const struct = document.getElementById('structureFilter').value;
+            const curatedOnly = document.getElementById('curatedOnly').checked;
 
             const filtered = vaultData.filter(map => {
-                // Check Dropdowns
-                if (era !== 'all' && map.era !== era) return false;
-                if (env !== 'all' && map.environment !== env) return false;
-                
-                // Check Text Search (searches title, features, tags, and cues)
+                if (curatedOnly && !map.curated) return false;
+                if (era !== 'all' && !(map.eras || []).includes(era)) return false;
+                if (env !== 'all' && !(map.environments || []).includes(env)) return false;
+                if (struct !== 'all' && !(map.structures || []).includes(struct)) return false;
+
                 if (query) {
                     const searchableText = [
                         map.title,
-                        map.environment,
-                        map.atmosphere,
+                        map.filename,
                         map.summary,
+                        ...(map.eras || []),
+                        ...(map.environments || []),
+                        ...(map.structures || []),
                         ...(map.features || []),
                         ...(map.shadow_shift_cues || [])
                     ].join(' ').toLowerCase();
-                    
+
                     if (!searchableText.includes(query)) return false;
                 }
-                
+
                 return true;
             });
 
@@ -207,8 +291,9 @@
         document.getElementById('searchInput').addEventListener('input', filterMaps);
         document.getElementById('eraFilter').addEventListener('change', filterMaps);
         document.getElementById('environmentFilter').addEventListener('change', filterMaps);
+        document.getElementById('structureFilter').addEventListener('change', filterMaps);
+        document.getElementById('curatedOnly').addEventListener('change', filterMaps);
 
-        // Initialize
         loadVault();
     </script>
 </body>
