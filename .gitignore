@@ -17,4 +17,5 @@ legacy_amber_index.json
 # Ignore all map files in the test directory, but keep the directory itself
 test-maps/*
 thumbnails/*
+staging/*
 !test-maps/.gitkeep
