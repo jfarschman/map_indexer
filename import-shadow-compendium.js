@@ -25,8 +25,10 @@ if (!response.ok) {
   ui.notifications.error("Could not find amber_map_index.json");
   return;
 }
-const mapData = await response.json();
-ui.notifications.info(`Loaded ${mapData.length} maps from JSON. Beginning import...`);
+const allMapData = await response.json();
+// Only import maps managed by Shadow Vault; leave third-party read-only compendiums (e.g. Milby's Maps) untouched
+const mapData = allMapData.filter(m => m.managed_by_vault !== false);
+ui.notifications.info(`Loaded ${mapData.length} managed maps (${allMapData.length} total in index). Beginning import...`);
 
 // 3. Process and create in small, rock-solid batches of 20
 const BATCH_SIZE = 20;
@@ -37,9 +39,10 @@ for (let i = 0; i < mapData.length; i += BATCH_SIZE) {
   const docsToCreate = [];
 
   for (const map of slice) {
-    const imgPath = `modules/shadow-vault/images/${map.filename}`;
+    const imgPath = map.relative_path || `modules/shadow-vault/images/${map.filename}`;
     const w = Number(map.width) || 4000;
     const h = Number(map.height) || 3000;
+    const gridSize = Number(map.grid_size) || 100;
 
     docsToCreate.push({
       name: map.title || map.filename,
@@ -75,7 +78,7 @@ for (let i = 0; i < mapData.length; i += BATCH_SIZE) {
       ],
 
       // Explicit grid definition
-      grid: { size: 100, type: 1 },
+      grid: { size: gridSize, type: 1 },
 
       // Golden DNA
       tokenVision: true,
@@ -94,13 +97,13 @@ for (let i = 0; i < mapData.length; i += BATCH_SIZE) {
       flags: {
         "shadow-vault": {
           filename: map.filename,
-          era: map.era,
-          environment: map.environment,
-          atmosphere: map.atmosphere,
-          order_chaos_scale: map.order_chaos_scale,
-          features: map.features,
-          shadow_shift_cues: map.shadow_shift_cues,
-          summary: map.summary
+          compendium: map.compendium || "Shadow Vault",
+          eras: map.eras || [],
+          environments: map.environments || [],
+          structures: map.structures || [],
+          features: map.features || [],
+          shadow_shift_cues: map.shadow_shift_cues || [],
+          summary: map.summary || ""
         }
       }
     });

@@ -18,4 +18,5 @@ legacy_amber_index.json
 test-maps/*
 thumbnails/*
 staging/*
+backups/
 !test-maps/.gitkeep
