@@ -16,6 +16,10 @@
             --badge-era: #2c3e50;
             --badge-env: #1e4620;
             --badge-struct: #4a2c40;
+            --badge-comp-managed: #233345;
+            --badge-comp-managed-border: #5e81ac;
+            --badge-comp-ext: #3d2f1a;
+            --badge-comp-ext-border: #d08770;
         }
         * { box-sizing: border-box; }
         body {
@@ -57,7 +61,7 @@
             background-color: var(--card-bg);
             color: var(--text-main);
             font-size: 0.95rem;
-            min-width: 180px;
+            min-width: 170px;
             flex-grow: 1;
         }
         input[type="text"]:focus, select:focus {
@@ -97,12 +101,35 @@
             display: flex;
             flex-direction: column;
         }
+        .card-img-wrap {
+            position: relative;
+        }
         .card-img {
             width: 100%;
             height: 210px;
             object-fit: cover;
+            display: block;
             border-bottom: 1px solid var(--border-color);
             background-color: #0b0b0d;
+        }
+        .compendium-pill {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            padding: 0.22rem 0.6rem;
+            border-radius: 999px;
+            background-color: rgba(35, 51, 69, 0.92);
+            border: 1px solid var(--badge-comp-managed-border);
+            color: #9ed4e6;
+            backdrop-filter: blur(4px);
+        }
+        .compendium-pill.external {
+            background-color: rgba(61, 47, 26, 0.94);
+            border-color: var(--badge-comp-ext-border);
+            color: #f3d28f;
         }
         .card-content {
             padding: 1.15rem;
@@ -119,7 +146,18 @@
         .meta-dims {
             font-size: 0.8rem;
             color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
         }
+        .lore-link {
+            color: var(--amber-color);
+            text-decoration: none;
+            font-size: 0.78rem;
+        }
+        .lore-link:hover { text-decoration: underline; }
         .badge-group {
             display: flex;
             flex-wrap: wrap;
@@ -164,7 +202,10 @@
             <div class="result-count" id="resultCount">Loading vault...</div>
         </div>
         <div class="controls">
-            <input type="text" id="searchInput" placeholder="Search title, summary, or features...">
+            <input type="text" id="searchInput" placeholder="Search title, summary, features, or compendium...">
+            <select id="compendiumFilter">
+                <option value="all">All Compendiums</option>
+            </select>
             <select id="eraFilter">
                 <option value="all">All Eras</option>
             </select>
@@ -187,6 +228,19 @@
         let vaultData = [];
         let taxonomy = { eras: [], environments: [], structures: [] };
 
+        function escapeHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function getCompendiumName(map) {
+            return (map.compendium || 'Shadow Vault').trim();
+        }
+
         async function loadVault() {
             try {
                 const [taxRes, mapRes] = await Promise.all([
@@ -205,6 +259,19 @@
         }
 
         function populateDropdowns() {
+            const compSelect = document.getElementById('compendiumFilter');
+            const compCounts = new Map();
+            vaultData.forEach(m => {
+                const c = getCompendiumName(m);
+                compCounts.set(c, (compCounts.get(c) || 0) + 1);
+            });
+            const compNames = Array.from(compCounts.keys()).sort((a, b) => {
+                if (a === 'Shadow Vault') return -1;
+                if (b === 'Shadow Vault') return 1;
+                return a.localeCompare(b);
+            });
+            compNames.forEach(c => compSelect.add(new Option(`${c} (${compCounts.get(c)})`, c)));
+
             const eraSelect = document.getElementById('eraFilter');
             (taxonomy.eras || []).forEach(era => eraSelect.add(new Option(era, era)));
 
@@ -228,23 +295,35 @@
 
             const html = maps.map(map => {
                 const imgFile = map.thumb_filename || map.filename;
-                const eraBadges = (map.eras || []).map(t => `<span class="badge era">${t}</span>`).join('');
-                const envBadges = (map.environments || []).map(t => `<span class="badge env">${t}</span>`).join('');
-                const structBadges = (map.structures || []).map(t => `<span class="badge struct">${t}</span>`).join('');
+                const compName = getCompendiumName(map);
+                const isExternal = map.managed_by_vault === false;
+                const eraBadges = (map.eras || []).map(t => `<span class="badge era">${escapeHtml(t)}</span>`).join('');
+                const envBadges = (map.environments || []).map(t => `<span class="badge env">${escapeHtml(t)}</span>`).join('');
+                const structBadges = (map.structures || []).map(t => `<span class="badge struct">${escapeHtml(t)}</span>`).join('');
                 const allBadges = eraBadges + envBadges + structBadges;
 
                 const featuresHtml = (map.features && map.features.length > 0)
-                    ? `<div class="features-box"><strong>Features:</strong> ${map.features.join(', ')}</div>`
+                    ? `<div class="features-box"><strong>Features:</strong> ${escapeHtml(map.features.join(', '))}</div>`
+                    : '';
+
+                const loreLinkHtml = map.source_url
+                    ? `<a class="lore-link" href="${escapeHtml(map.source_url)}" target="_blank" rel="noopener noreferrer">Lore ↗</a>`
                     : '';
 
                 return `
                     <div class="card">
-                        <img src="thumbnails/${encodeURIComponent(imgFile)}" alt="${map.title || map.filename}" class="card-img" loading="lazy">
+                        <div class="card-img-wrap">
+                            <img src="thumbnails/${encodeURIComponent(imgFile)}" alt="${escapeHtml(map.title || map.filename)}" class="card-img" loading="lazy">
+                            <span class="compendium-pill${isExternal ? ' external' : ''}">${escapeHtml(compName)}</span>
+                        </div>
                         <div class="card-content">
-                            <h2 class="card-title">${map.title || map.filename}</h2>
-                            <div class="meta-dims">${map.width || '?'}x${map.height || '?'} px &middot; Grid: ${map.grid_size || 100}px</div>
+                            <h2 class="card-title">${escapeHtml(map.title || map.filename)}</h2>
+                            <div class="meta-dims">
+                                <span>${map.width || '?'}x${map.height || '?'} px &middot; Grid: ${map.grid_size || 100}px</span>
+                                ${loreLinkHtml}
+                            </div>
                             ${allBadges ? `<div class="badge-group">${allBadges}</div>` : ''}
-                            <p class="summary">${map.summary || 'No summary yet.'}</p>
+                            <p class="summary">${escapeHtml(map.summary || 'No summary yet.')}</p>
                             ${featuresHtml}
                         </div>
                     </div>
@@ -256,6 +335,7 @@
 
         function filterMaps() {
             const query = document.getElementById('searchInput').value.trim().toLowerCase();
+            const compendium = document.getElementById('compendiumFilter').value;
             const era = document.getElementById('eraFilter').value;
             const env = document.getElementById('environmentFilter').value;
             const struct = document.getElementById('structureFilter').value;
@@ -263,6 +343,7 @@
 
             const filtered = vaultData.filter(map => {
                 if (curatedOnly && !map.curated) return false;
+                if (compendium !== 'all' && getCompendiumName(map) !== compendium) return false;
                 if (era !== 'all' && !(map.eras || []).includes(era)) return false;
                 if (env !== 'all' && !(map.environments || []).includes(env)) return false;
                 if (struct !== 'all' && !(map.structures || []).includes(struct)) return false;
@@ -271,7 +352,9 @@
                     const searchableText = [
                         map.title,
                         map.filename,
+                        getCompendiumName(map),
                         map.summary,
+                        map.lore,
                         ...(map.eras || []),
                         ...(map.environments || []),
                         ...(map.structures || []),
@@ -289,6 +372,7 @@
         }
 
         document.getElementById('searchInput').addEventListener('input', filterMaps);
+        document.getElementById('compendiumFilter').addEventListener('change', filterMaps);
         document.getElementById('eraFilter').addEventListener('change', filterMaps);
         document.getElementById('environmentFilter').addEventListener('change', filterMaps);
         document.getElementById('structureFilter').addEventListener('change', filterMaps);

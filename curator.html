@@ -14,6 +14,13 @@
       --accent: #5e81ac;
       --accent-active: #88c0d0;
       --success: #a3be8c;
+      --amber: #ebcb8b;
+      --badge-managed-bg: #243447;
+      --badge-managed-border: #5e81ac;
+      --badge-managed-text: #88c0d0;
+      --badge-ext-bg: #3b2f1c;
+      --badge-ext-border: #d08770;
+      --badge-ext-text: #ebcb8b;
     }
     * { box-sizing: border-box; }
     body {
@@ -33,8 +40,9 @@
       align-items: center;
       justify-content: space-between;
       gap: 16px;
+      flex-wrap: wrap;
     }
-    .controls { display: flex; align-items: center; gap: 12px; }
+    .controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     select, input[type="text"], input[type="number"], textarea {
       background: var(--bg);
       color: var(--text);
@@ -42,6 +50,10 @@
       border-radius: 6px;
       padding: 8px 10px;
       font-size: 14px;
+    }
+    select:disabled, input:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
     }
     input[type="text"], textarea { width: 100%; }
     textarea { resize: vertical; min-height: 70px; font-family: inherit; }
@@ -63,20 +75,63 @@
       align-items: center;
       justify-content: center;
       overflow: hidden;
+      gap: 10px;
+    }
+    .compendium-banner {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .compendium-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      border: 1px solid var(--badge-managed-border);
+      background: var(--badge-managed-bg);
+      color: var(--badge-managed-text);
+    }
+    .compendium-badge.external {
+      border-color: var(--badge-ext-border);
+      background: var(--badge-ext-bg);
+      color: var(--badge-ext-text);
+    }
+    .readonly-pill {
+      font-size: 11px;
+      color: var(--amber);
+      background: rgba(235, 203, 139, 0.12);
+      border: 1px solid rgba(235, 203, 139, 0.35);
+      border-radius: 4px;
+      padding: 2px 7px;
+      white-space: nowrap;
     }
     .preview-pane img {
       max-width: 100%;
-      max-height: 72vh;
+      max-height: 66vh;
       object-fit: contain;
       border-radius: 4px;
       background: #000;
     }
     .meta-strip {
-      margin-top: 12px;
       font-size: 13px;
       color: var(--muted);
       text-align: center;
       word-break: break-all;
+      line-height: 1.45;
+    }
+    .meta-path {
+      display: block;
+      font-size: 11px;
+      color: #6b7482;
+      margin-top: 2px;
     }
     .form-pane {
       background: var(--panel);
@@ -86,9 +141,9 @@
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 14px;
     }
-    .field-row { display: flex; gap: 12px; }
+    .field-row { display: flex; gap: 12px; align-items: flex-end; }
     .field-group { display: flex; flex-direction: column; gap: 6px; flex: 1; }
     label {
       font-size: 12px;
@@ -97,6 +152,32 @@
       letter-spacing: 0.05em;
       color: var(--muted);
     }
+    .compendium-editor {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .compendium-editor select { flex: 1; }
+    .compendium-editor input[type="text"] { flex: 1; }
+    .field-hint {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .lore-box {
+      background: #14171d;
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--amber);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 12px;
+      color: #c5ccd6;
+      line-height: 1.45;
+    }
+    .lore-box a {
+      color: var(--accent-active);
+      text-decoration: none;
+    }
+    .lore-box a:hover { text-decoration: underline; }
     .pill-grid {
       display: flex;
       flex-wrap: wrap;
@@ -150,17 +231,24 @@
       <span id="progress" style="color: var(--muted); font-size: 14px;">Loading...</span>
     </div>
     <div class="controls">
-      <select id="filterMode">
+      <select id="compendiumFilter" title="Filter by Compendium">
+        <option value="all">All Compendiums</option>
+      </select>
+      <select id="filterMode" title="Filter by Curation Status">
         <option value="uncurated">Uncurated Only</option>
         <option value="all">All Maps</option>
         <option value="curated">Curated Only</option>
       </select>
-      <input type="text" id="quickSearch" placeholder="Filter filename/title..." style="width: 220px;">
+      <input type="text" id="quickSearch" placeholder="Filter filename/title/compendium..." style="width: 230px;">
     </div>
   </header>
 
   <main>
     <section class="preview-pane">
+      <div class="compendium-banner">
+        <span id="compendiumBadge" class="compendium-badge">—</span>
+        <span id="readonlyPill" class="readonly-pill" style="display: none;">🔒 Read-Only Module</span>
+      </div>
       <img id="mapImg" src="" alt="Map thumbnail">
       <div class="meta-strip" id="metaStrip"></div>
     </section>
@@ -175,6 +263,15 @@
           <label for="gridInput">Grid (px)</label>
           <input type="number" id="gridInput">
         </div>
+      </div>
+
+      <div class="field-group">
+        <label for="compendiumSelect">Compendium</label>
+        <div class="compendium-editor">
+          <select id="compendiumSelect"></select>
+          <input type="text" id="compendiumCustomInput" placeholder="New compendium name..." style="display: none;">
+        </div>
+        <span class="field-hint" id="compendiumHint"></span>
       </div>
 
       <div class="field-group">
@@ -202,6 +299,8 @@
         <input type="text" id="featuresInput" placeholder="e.g. rope bridge, waterfall, campfire, ruined arch">
       </div>
 
+      <div class="lore-box" id="loreBox" style="display: none;"></div>
+
       <div class="actions">
         <div style="display: flex; gap: 8px;">
           <button id="prevBtn" type="button">← Prev</button>
@@ -214,6 +313,7 @@
   </main>
 
   <script>
+    const NEW_COMPENDIUM_SENTINEL = "__new__";
     let taxonomy = { eras: [], environments: [], structures: [] };
     let allMaps = [];
     let filteredMaps = [];
@@ -231,7 +331,81 @@
       buildPills("envPills", taxonomy.environments);
       buildPills("structPills", taxonomy.structures);
 
+      populateCompendiumFilter();
       applyFilter();
+    }
+
+    function getCompendiumName(map) {
+      return (map.compendium || "Shadow Vault").trim();
+    }
+
+    function getCompendiumCounts() {
+      const counts = new Map();
+      allMaps.forEach(m => {
+        const c = getCompendiumName(m);
+        counts.set(c, (counts.get(c) || 0) + 1);
+      });
+      return counts;
+    }
+
+    function getManagedCompendiums() {
+      const set = new Set(["Shadow Vault"]);
+      allMaps.forEach(m => {
+        if (m.managed_by_vault !== false) {
+          set.add(getCompendiumName(m));
+        }
+      });
+      return Array.from(set).sort((a, b) => {
+        if (a === "Shadow Vault") return -1;
+        if (b === "Shadow Vault") return 1;
+        return a.localeCompare(b);
+      });
+    }
+
+    function populateCompendiumFilter() {
+      const select = document.getElementById("compendiumFilter");
+      const previous = select.value || "all";
+      const counts = getCompendiumCounts();
+      const names = Array.from(counts.keys()).sort((a, b) => {
+        if (a === "Shadow Vault") return -1;
+        if (b === "Shadow Vault") return 1;
+        return a.localeCompare(b);
+      });
+
+      select.innerHTML = "";
+      select.add(new Option(`All Compendiums (${allMaps.length})`, "all"));
+      names.forEach(name => {
+        select.add(new Option(`${name} (${counts.get(name)})`, name));
+      });
+
+      select.value = Array.from(select.options).some(o => o.value === previous) ? previous : "all";
+    }
+
+    function populateCompendiumEditor(map) {
+      const select = document.getElementById("compendiumSelect");
+      const customInput = document.getElementById("compendiumCustomInput");
+      const hint = document.getElementById("compendiumHint");
+      const currentComp = getCompendiumName(map);
+      const isReadOnly = map.managed_by_vault === false;
+
+      select.innerHTML = "";
+      customInput.style.display = "none";
+      customInput.value = "";
+
+      if (isReadOnly) {
+        select.add(new Option(currentComp, currentComp));
+        select.value = currentComp;
+        select.disabled = true;
+        hint.textContent = "Read-only third-party Foundry module — compendium & source file stay locked.";
+      } else {
+        const managedList = getManagedCompendiums();
+        if (!managedList.includes(currentComp)) managedList.push(currentComp);
+        managedList.forEach(c => select.add(new Option(c, c)));
+        select.add(new Option("+ Create New Compendium...", NEW_COMPENDIUM_SENTINEL));
+        select.value = currentComp;
+        select.disabled = false;
+        hint.textContent = "Managed by Shadow Vault — you can organize into sub-compendiums anytime.";
+      }
     }
 
     function buildPills(containerId, items) {
@@ -266,14 +440,16 @@
     }
 
     function applyFilter() {
+      const comp = document.getElementById("compendiumFilter").value;
       const mode = document.getElementById("filterMode").value;
       const q = document.getElementById("quickSearch").value.trim().toLowerCase();
 
       filteredMaps = allMaps.filter(m => {
+        if (comp !== "all" && getCompendiumName(m) !== comp) return false;
         if (mode === "uncurated" && m.curated) return false;
         if (mode === "curated" && !m.curated) return false;
         if (q) {
-          const hay = `${m.filename} ${m.title || ""}`.toLowerCase();
+          const hay = `${m.filename} ${m.title || ""} ${getCompendiumName(m)}`.toLowerCase();
           if (!hay.includes(q)) return false;
         }
         return true;
@@ -287,10 +463,17 @@
     function renderCurrent() {
       const img = document.getElementById("mapImg");
       const meta = document.getElementById("metaStrip");
+      const badge = document.getElementById("compendiumBadge");
+      const roPill = document.getElementById("readonlyPill");
+      const loreBox = document.getElementById("loreBox");
 
       if (filteredMaps.length === 0) {
         img.src = "";
+        badge.textContent = "No map selected";
+        badge.className = "compendium-badge";
+        roPill.style.display = "none";
         meta.textContent = "No maps match the current filter.";
+        loreBox.style.display = "none";
         return;
       }
 
@@ -298,22 +481,64 @@
       if (currentIndex < 0) currentIndex = 0;
 
       const m = filteredMaps[currentIndex];
+      const compName = getCompendiumName(m);
+      const isReadOnly = m.managed_by_vault === false;
+
+      badge.textContent = compName;
+      badge.className = isReadOnly ? "compendium-badge external" : "compendium-badge";
+      roPill.style.display = isReadOnly ? "inline-block" : "none";
+
       img.src = `thumbnails/${encodeURIComponent(m.thumb_filename)}`;
-      meta.textContent = `[${currentIndex + 1} / ${filteredMaps.length}]  ${m.filename}  (${m.width}x${m.height})  ${m.curated ? "✓ Curated" : "• Uncurated"}`;
+      meta.innerHTML = "";
+      const mainLine = document.createTextNode(
+        `[${currentIndex + 1} / ${filteredMaps.length}]  ${m.filename}  (${m.width}x${m.height})  ${m.curated ? "✓ Curated" : "• Uncurated"}`
+      );
+      meta.appendChild(mainLine);
+      if (m.relative_path) {
+        const pathEl = document.createElement("span");
+        pathEl.className = "meta-path";
+        pathEl.textContent = m.relative_path;
+        meta.appendChild(pathEl);
+      }
 
       document.getElementById("titleInput").value = m.title || "";
       document.getElementById("gridInput").value = m.grid_size || 100;
       document.getElementById("summaryInput").value = m.summary || "";
       document.getElementById("featuresInput").value = (m.features || []).join(", ");
 
+      populateCompendiumEditor(m);
+
       setPills("eraPills", m.eras);
       setPills("envPills", m.environments);
       setPills("structPills", m.structures);
+
+      if (m.lore || m.source_url) {
+        loreBox.innerHTML = "";
+        if (m.lore) {
+          const strong = document.createElement("strong");
+          strong.textContent = "Creator Lore: ";
+          loreBox.appendChild(strong);
+          loreBox.appendChild(document.createTextNode(m.lore));
+        }
+        if (m.source_url) {
+          if (m.lore) loreBox.appendChild(document.createElement("br"));
+          const link = document.createElement("a");
+          link.href = m.source_url;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = "Open creator page ↗";
+          loreBox.appendChild(link);
+        }
+        loreBox.style.display = "block";
+      } else {
+        loreBox.style.display = "none";
+      }
     }
 
     async function saveCurrent() {
       if (filteredMaps.length === 0) return;
       const m = filteredMaps[currentIndex];
+      const status = document.getElementById("statusMsg");
 
       m.title = document.getElementById("titleInput").value.trim();
       m.grid_size = parseInt(document.getElementById("gridInput").value, 10) || 100;
@@ -327,7 +552,22 @@
         .filter(Boolean);
       m.curated = true;
 
-      const status = document.getElementById("statusMsg");
+      if (m.managed_by_vault !== false) {
+        const compSelect = document.getElementById("compendiumSelect");
+        const customInput = document.getElementById("compendiumCustomInput");
+        if (compSelect.value === NEW_COMPENDIUM_SENTINEL) {
+          const customName = customInput.value.trim();
+          if (!customName) {
+            status.textContent = "Enter a new compendium name first!";
+            customInput.focus();
+            return;
+          }
+          m.compendium = customName;
+        } else {
+          m.compendium = compSelect.value;
+        }
+      }
+
       status.textContent = "Saving...";
 
       const res = await fetch("/api/save", {
@@ -340,8 +580,14 @@
         status.textContent = "Saved!";
         setTimeout(() => { if (status.textContent === "Saved!") status.textContent = ""; }, 1200);
 
+        populateCompendiumFilter();
         const mode = document.getElementById("filterMode").value;
-        if (mode === "uncurated") {
+        const activeCompFilter = document.getElementById("compendiumFilter").value;
+        const removedFromQueue =
+          mode === "uncurated" ||
+          (activeCompFilter !== "all" && getCompendiumName(m) !== activeCompFilter);
+
+        if (removedFromQueue) {
           filteredMaps.splice(currentIndex, 1);
         } else {
           currentIndex = Math.min(currentIndex + 1, filteredMaps.length - 1);
@@ -353,8 +599,18 @@
       }
     }
 
+    document.getElementById("compendiumFilter").addEventListener("change", applyFilter);
     document.getElementById("filterMode").addEventListener("change", applyFilter);
     document.getElementById("quickSearch").addEventListener("input", applyFilter);
+    document.getElementById("compendiumSelect").addEventListener("change", e => {
+      const customInput = document.getElementById("compendiumCustomInput");
+      if (e.target.value === NEW_COMPENDIUM_SENTINEL) {
+        customInput.style.display = "block";
+        customInput.focus();
+      } else {
+        customInput.style.display = "none";
+      }
+    });
     document.getElementById("prevBtn").addEventListener("click", () => { currentIndex--; renderCurrent(); });
     document.getElementById("nextBtn").addEventListener("click", () => { currentIndex++; renderCurrent(); });
     document.getElementById("saveBtn").addEventListener("click", saveCurrent);
