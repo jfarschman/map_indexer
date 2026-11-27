@@ -353,8 +353,13 @@ def main():
         default=None,
         help="Collapse furnished/unfurnished variants (defaults to 'unfurnished' for Milby compendiums, 'all' otherwise)",
     )
-    parser.add_argument("--dry-run", action="store_true", help="List new maps to tag without calling the API or writing files")
-    parser.add_argument("--rename", action="store_true", help="Rename image files based on AI title (blocked in --read-only mode)")
+    parser.add_argument(
+        "--retag-uncurated",
+        action="store_true",
+        help="Include existing indexed maps where curated=false and update their records in place",
+    )
+    parser.add_argument("--dry-run", action="store_true", help="List maps to tag/re-tag without calling the API or writing files")
+    parser.add_argument("--rename", action="store_true", help="Rename new image files based on AI title (blocked in --read-only mode; skipped for in-place re-tags)")
     args = parser.parse_args()
 
     target_path = Path(args.target).expanduser().resolve()
@@ -388,7 +393,11 @@ def main():
     else:
         results = []
 
-    processed_rel_paths = {r.get("relative_path") for r in results if r.get("relative_path")}
+    records_by_rel_path: Dict[str, Tuple[int, dict]] = {
+        r["relative_path"]: (idx, r)
+        for idx, r in enumerate(results)
+        if r.get("relative_path")
+    }
     # Also track already-indexed variant groups in the same folder so we don't re-tag a sibling variant
     processed_variant_keys = {
         (str(Path(r["relative_path"]).parent), variant_base_key(Path(r["relative_path"]).name))
@@ -410,15 +419,30 @@ def main():
             all_image_files, prefer_res=prefer_res, prefer_furnishing=prefer_furnishing
         )
 
-    new_files = []
+    # Each queued item is (img_path, existing_idx_or_None)
+    queue: List[Tuple[Path, Optional[int]]] = []
+    new_count = 0
+    retag_count = 0
     skipped_indexed = 0
+    skipped_curated = 0
     for p in candidate_files:
         rel_p = f"{rel_prefix}/{p.name}"
         vkey = (rel_prefix, variant_base_key(p.name))
-        if rel_p in processed_rel_paths or ((prefer_res != "all" or prefer_furnishing != "all") and vkey in processed_variant_keys):
+        existing_entry = records_by_rel_path.get(rel_p)
+        if existing_entry is not None:
+            existing_idx, existing_rec = existing_entry
+            if args.retag_uncurated and existing_rec.get("curated") is False:
+                queue.append((p, existing_idx))
+                retag_count += 1
+            else:
+                skipped_indexed += 1
+                if existing_rec.get("curated") is True:
+                    skipped_curated += 1
+        elif (prefer_res != "all" or prefer_furnishing != "all") and vkey in processed_variant_keys:
             skipped_indexed += 1
         else:
-            new_files.append(p)
+            queue.append((p, None))
+            new_count += 1
 
     # Determine lore DB
     lore_db = {}
@@ -440,33 +464,42 @@ def main():
     print(f"Foundry rel prefix     : {rel_prefix}")
     print(f"Variant filter         : res={prefer_res}, furnishing={prefer_furnishing} (collapsed {collapsed_variants} siblings)")
     print(f"Lore DB                : {lore_file if lore_db else 'disabled'}")
+    print(f"Retag uncurated        : {'enabled' if args.retag_uncurated else 'disabled'}")
     print(f"Existing index entries : {len(results)}")
-    print(f"Already indexed (skip) : {skipped_indexed}")
-    print(f"New maps to tag        : {len(new_files)}")
+    skip_detail = f" ({skipped_curated} curated)" if args.retag_uncurated else ""
+    print(f"Already indexed (skip) : {skipped_indexed}{skip_detail}")
+    print(f"New maps to tag        : {new_count}")
+    if args.retag_uncurated:
+        print(f"Uncurated to re-tag    : {retag_count}")
+        print(f"Total maps to process  : {len(queue)}")
 
     if args.dry_run:
         print("\n--- DRY RUN (No API calls or writes) ---")
         lore_hits = 0
-        for p in new_files:
+        for p, existing_idx in queue:
             matched = find_lore_match(p.name, lore_db) if lore_db else None
             if matched:
                 lore_hits += 1
             lore_tag = " [lore match]" if matched else ""
-            print(f"  [NEW] {p.name}{lore_tag}")
+            status_tag = "[RETAG]" if existing_idx is not None else "[NEW]"
+            print(f"  {status_tag} {p.name}{lore_tag}")
         if lore_db:
-            print(f"\nLore DB matches        : {lore_hits} / {len(new_files)}")
+            print(f"\nLore DB matches        : {lore_hits} / {len(queue)}")
         return
 
-    if not new_files:
-        print("Nothing new to tag.")
+    if not queue:
+        print("Nothing to tag." if args.retag_uncurated else "Nothing new to tag.")
         return
 
     THUMB_DIR.mkdir(exist_ok=True)
     client = genai.Client()
 
     added = 0
-    for img_path in new_files:
-        print(f"\n[*] Processing: {img_path.name}")
+    retagged = 0
+    for img_path, existing_idx in queue:
+        existing_rec = results[existing_idx] if existing_idx is not None else None
+        mode_tag = "Re-tagging" if existing_rec is not None else "Processing"
+        print(f"\n[*] {mode_tag}: {img_path.name}")
         try:
             api_bytes, width, height = prepare_image_assets(img_path)
             grid_size = extract_grid_size(img_path.name, width)
@@ -475,14 +508,24 @@ def main():
             ai_data = analyze_map(client, api_bytes, schema_model, matched_lore)
 
             final_path = img_path
-            if args.rename and not is_read_only:
+            if args.rename and not is_read_only and existing_rec is None:
                 candidate = slugify_filename(ai_data["title"], img_path)
                 if candidate != img_path:
                     img_path.rename(candidate)
                     final_path = candidate
                     print(f"    [~] Renamed to: {final_path.name}")
 
-            thumb_filename = make_thumb_filename(args.compendium, final_path, existing_thumbs)
+            if existing_rec is not None:
+                compendium = existing_rec.get("compendium", args.compendium)
+                managed_by_vault = existing_rec.get("managed_by_vault", not is_read_only)
+                thumb_filename = existing_rec.get("thumb_filename") or make_thumb_filename(
+                    compendium, final_path, existing_thumbs
+                )
+            else:
+                compendium = args.compendium
+                managed_by_vault = not is_read_only
+                thumb_filename = make_thumb_filename(compendium, final_path, existing_thumbs)
+
             build_thumbnail(final_path, THUMB_DIR / thumb_filename)
             existing_thumbs.add(thumb_filename)
 
@@ -490,8 +533,8 @@ def main():
                 "filename": final_path.name,
                 "thumb_filename": thumb_filename,
                 "relative_path": f"{rel_prefix}/{final_path.name}",
-                "compendium": args.compendium,
-                "managed_by_vault": not is_read_only,
+                "compendium": compendium,
+                "managed_by_vault": managed_by_vault,
                 "title": ai_data.get("title", final_path.stem),
                 "width": width,
                 "height": height,
@@ -508,21 +551,34 @@ def main():
                 record["source_url"] = ai_data["source_url"]
             elif matched_lore and matched_lore.get("link"):
                 record["source_url"] = matched_lore["link"]
+            elif existing_rec is not None and existing_rec.get("source_url"):
+                record["source_url"] = existing_rec["source_url"]
+
             if ai_data.get("lore"):
                 record["lore"] = ai_data["lore"]
             elif matched_lore and matched_lore.get("lore"):
                 record["lore"] = matched_lore["lore"]
+            elif existing_rec is not None and existing_rec.get("lore"):
+                record["lore"] = existing_rec["lore"]
 
-            results.append(record)
+            if existing_idx is not None:
+                results[existing_idx] = record
+                retagged += 1
+                action_label = "Re-tagged"
+            else:
+                results.append(record)
+                records_by_rel_path[record["relative_path"]] = (len(results) - 1, record)
+                added += 1
+                action_label = "Tagged"
+
             save_index_atomic(results)
-            added += 1
-            print(f"    [+] Tagged: {record['title']} | Eras: {record['eras']} | Envs: {record['environments']}")
+            print(f"    [+] {action_label}: {record['title']} | Eras: {record['eras']} | Envs: {record['environments']}")
             time.sleep(0.5)
 
         except Exception as e:
             print(f"    [!] Error on {img_path.name}: {e}")
 
-    print(f"\nDone! Added {added} new maps. Total in index: {len(results)}")
+    print(f"\nDone! Added {added} new maps, re-tagged {retagged} uncurated maps. Total in index: {len(results)}")
 
 
 if __name__ == "__main__":
