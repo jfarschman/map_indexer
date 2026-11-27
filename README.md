@@ -21,7 +21,7 @@ This toolkit eliminates the cognitive load of manual map sorting. It uses the Ge
 ## The Toolkit (What & Where)
 
 ### Core Indexing & Multi-Compendium Tools
-- **`tag_maps.py`**: Core AI tagging engine (`gemini-3.8-flash` + structured output locked to `taxonomy.json`). Supports `--compendium "<name>"`, `--read-only`, `--dry-run`, `--rename` (blocked automatically on read-only/third-party modules), dynamic Foundry `relative_path` resolution, compendium-prefixed thumbnails (`<compendium-slug>__<stem>.jpg`), Milby variant collapsing (defaults to `140px` + `Unfurnished` when indexing Milby packs), and conditional `milby_lore_db.json` lore injection.
+- **`tag_maps.py`**: Core AI tagging engine (`gemini-3.8-flash` + structured output locked to `taxonomy.json`). Supports `--compendium "<name>"`, `--read-only`, `--retag-uncurated` (re-runs AI tagging on existing `"curated": false` entries in place while skipping `"curated": true` entries and preserving `thumb_filename`, `compendium`, and `managed_by_vault`), `--dry-run`, `--rename` (blocked automatically on read-only/third-party modules and skipped for in-place re-tags), dynamic Foundry `relative_path` resolution, compendium-prefixed thumbnails (`<compendium-slug>__<stem>.jpg`), Milby variant collapsing (defaults to `140px` + `Unfurnished` when indexing Milby packs), and conditional `milby_lore_db.json` lore injection.
 - **`audit_milby_dupes.py`**: Read-only deduplication auditor comparing `shadow-vault/images` against Milby's Maps Vol. 1–3 (`art/` only). Uses MD5 + 4-rotation 128-bit perceptual dHash + aspect-ratio verification + fuzzy name matching to catch copies that were rotated 90° or brightened by 15%. Defaults to `--dry-run` (writing `backups/milby_audit_report.json`); `--apply` backs up `amber_map_index.json`, re-points matched records in place (preserving `curated` metadata), and moves duplicate Shadow Vault images into `backups/deduped_shadow_vault_images/<timestamp>/` with an `undo_manifest.json`.
 - **`migrate_index.py`**: Migrates `amber_map_index.json` to the multi-compendium schema (`compendium`, `managed_by_vault`, legacy `era` → `eras` cleanup, and compendium-prefixed thumbnail filenames). Defaults to `--dry-run`; `--apply` backs up the index and writes atomically.
 - **`taxonomy.json`**: Controlled vocabulary authority file defining allowed `eras`, `environments`, and `structures`.
@@ -107,6 +107,11 @@ export GEMINI_API_KEY="your-api-key"
    ```bash
    python3 tag_maps.py ~/Library/Application\ Support/FoundryVTT/Data/modules/shadow-vault/images --dry-run
    python3 tag_maps.py ~/Library/Application\ Support/FoundryVTT/Data/modules/shadow-vault/images --rename
+   ```
+4. Re-tag existing uncurated maps (`"curated": false`) in place without touching `"curated": true` entries (preserving `thumb_filename`, `compendium`, and `managed_by_vault`):
+   ```bash
+   python3 tag_maps.py ~/Library/Application\ Support/FoundryVTT/Data/modules/shadow-vault/images --compendium "Shadow Vault" --retag-uncurated --dry-run
+   python3 tag_maps.py ~/Library/Application\ Support/FoundryVTT/Data/modules/shadow-vault/images --compendium "Shadow Vault" --retag-uncurated
    ```
 
 ### 3. Auditing & Indexing Read-Only Third-Party Modules (Milby's Maps)
